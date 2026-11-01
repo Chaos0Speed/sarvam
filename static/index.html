@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ghar Ka Doctor — Parchi-se-Puchho</title>
+  <meta name="description" content="Your lab report and prescription, explained in your language — with a voice doubt solver." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🩺</div>
+        <div>
+          <h1>Ghar Ka Doctor</h1>
+          <p class="tagline">"Parchi-se-Puchho" — your lab report &amp; prescription, explained in your language</p>
+        </div>
+      </div>
+      <span class="disclaimer-pill">⚠️ Patient education demo — not medical advice</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Setup -->
+    <section class="card setup-card">
+      <div class="setup-grid">
+        <div class="field">
+          <span class="field-label">Clinical case</span>
+          <select id="preset">
+            <option value="case-a">Case A — Diabetes + Thyroid</option>
+            <option value="case-b">Case B — Post-Fever + Antibiotic</option>
+            <option value="upload">📤 Upload report / prescription</option>
+          </select>
+        </div>
+        <div class="field hidden" id="file-field">
+          <span class="field-label">Report (photo or PDF)</span>
+          <label class="file-drop" for="file">
+            <input type="file" id="file" accept="image/*,.pdf" hidden />
+            <span id="file-name">Click to choose a photo or PDF</span>
+          </label>
+        </div>
+        <div class="field">
+          <span class="field-label">Language</span>
+          <select id="language"></select>
+        </div>
+        <button id="analyze" class="btn primary">✨ Generate Storyboard</button>
+      </div>
+      <p id="setup-status" class="status"></p>
+    </section>
+
+    <!-- Storyboard -->
+    <section id="board" class="hidden">
+      <h2 class="section-title">🔬 Lab ➜ Pill map <span class="section-hint">why each medicine is in your kit</span></h2>
+      <div id="lab-links" class="lab-grid"></div>
+
+      <h2 class="section-title">⏰ Daily medicine schedule <span class="section-hint">tap 🔊 next to anything to hear it</span></h2>
+      <div class="grid3">
+        <div class="card slot" id="slot-morning">
+          <div class="slot-head morning"><span class="slot-emoji">☀️</span><div><h3>Morning</h3><p class="slot-label"></p></div></div>
+          <div class="pills"></div>
+        </div>
+        <div class="card slot" id="slot-afternoon">
+          <div class="slot-head afternoon"><span class="slot-emoji">🌤️</span><div><h3>Afternoon</h3><p class="slot-label"></p></div></div>
+          <div class="pills"></div>
+        </div>
+        <div class="card slot" id="slot-night">
+          <div class="slot-head night"><span class="slot-emoji">🌙</span><div><h3>Night</h3><p class="slot-label"></p></div></div>
+          <div class="pills"></div>
+        </div>
+      </div>
+
+      <div class="card story-card">
+        <div class="story-top">
+          <h2>🩺 Today's routine, explained</h2>
+          <button id="play-story" class="btn speak hidden">▶ Listen to summary</button>
+        </div>
+        <p id="story-text"></p>
+      </div>
+
+      <div class="card">
+        <h2>🧂 Kitchen guardrails</h2>
+        <ul id="guardrails" class="guard-list"></ul>
+      </div>
+    </section>
+
+    <!-- Doubt drawer -->
+    <section class="card doubt-card" id="doubt">
+      <h2>🎙️ Puchho Doctor Se</h2>
+      <p class="muted doubt-hint">Hold the mic for ~5 seconds, tap a sample doubt, or type below — every answer is checked against <em>your</em> report, and dose changes are always routed to a real doctor.</p>
+      <div id="chips" class="chips"></div>
+      <div class="ask-row">
+        <input id="question" placeholder="Type your doubt…" autocomplete="off" />
+        <button id="mic" class="btn mic" title="Hold to record ~5 seconds">🎙️ Hold</button>
+        <button id="ask" class="btn primary">Ask</button>
+      </div>
+      <p id="doubt-status" class="status"></p>
+      <div id="answer" class="hidden">
+        <div class="answer-head">
+          <span class="badge" id="safety-badge"></span>
+          <span class="checked" id="checked"></span>
+        </div>
+        <div class="say-row">
+          <button class="icon-speak" id="speak-transcript" title="Listen">🔊</button>
+          <p class="transcript" id="transcript"></p>
+        </div>
+        <div class="say-row">
+          <button class="icon-speak" id="speak-answer" title="Listen">🔊</button>
+          <p class="answer-text" id="answer-text"></p>
+        </div>
+        <p class="misconception hidden" id="misconception"></p>
+        <p class="tts-note hidden" id="tts-note"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Ghar Ka Doctor · Sarvam Vision · sarvam-105b-conversations · Saaras STT · Bulbul TTS · Not medical advice</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
