@@ -9,6 +9,9 @@ or Hinglish — answered strictly against the patient's own report.
 > ⚠️ Demo for patient education only. Not medical advice. It never changes
 > doses — doubts about changing anything are flagged "Consult doctor".
 
+**🌐 Hosted website (live demo): [https://ghar-ka-doctor.onrender.com/](https://ghar-ka-doctor.onrender.com/)**
+*(Free Render tier — sleeps after ~15 min idle; the first visit takes ~30 s to wake.)*
+
 ## Run
 
 ```bash
@@ -46,7 +49,8 @@ The API key is read from `.env` (`SARVAM_API_KEY=`) — never hardcode it.
 
 ## Deploy (free)
 
-**Render (recommended):** this repo ships a `render.yaml` blueprint.
+**Render (recommended):** this repo ships a `render.yaml` blueprint — and the
+app is already live at [https://ghar-ka-doctor.onrender.com/](https://ghar-ka-doctor.onrender.com/).
 
 1. Push the repo to GitHub.
 2. On [render.com](https://render.com) → **New +** → **Blueprint** → pick the repo.
