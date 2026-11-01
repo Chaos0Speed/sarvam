@@ -127,8 +127,12 @@ def speak(text: str, language_code: str) -> str | None:
     return audio  # API already returns base64 strings
 
 
-def transcribe(data: bytes, filename: str, mime: str, language_code: str) -> str:
-    """Speech-to-text with codemix mode — English words stay in English."""
+def transcribe(data: bytes, filename: str, mime: str, language_code: str) -> tuple[str, str]:
+    """Speech-to-text with codemix mode — English words stay in English.
+
+    Pass language_code="unknown" to let Saaras auto-detect the language.
+    Returns (transcript, detected_language_code).
+    """
     ext = (mime or "").split("/")[-1].split(";")[0].lower()
     if ext not in _STT_CODECS:
         ext = "wav"
@@ -139,7 +143,9 @@ def transcribe(data: bytes, filename: str, mime: str, language_code: str) -> str
         language_code=language_code,
         input_audio_codec=ext,
     )
-    return (getattr(response, "transcript", "") or "").strip()
+    transcript = (getattr(response, "transcript", "") or "").strip()
+    detected = getattr(response, "language_code", None) or language_code
+    return transcript, detected
 
 
 def ocr_document(data: bytes, filename: str, mime: str, language_code: str) -> str:

@@ -85,7 +85,9 @@ Return natural, spoken-style translations in that language; code-mixed style is 
 Output ONLY a JSON object of the form {"translations": ["translation 1", "translation 2", ...]} with exactly one item per input text — no commentary, no code fences, nothing outside the JSON."""
 
 
-def _require_language(code: str) -> None:
+def _require_language(code: str, allow_unknown: bool = False) -> None:
+    if code == "unknown" and allow_unknown:
+        return
     if code not in LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported language: {code}")
 
@@ -189,16 +191,18 @@ class AskDoubtRequest(BaseModel):
 
 @app.post("/api/ask-doubt")
 async def ask_doubt(req: AskDoubtRequest) -> dict:
-    _require_language(req.language_code)
+    _require_language(req.language_code, allow_unknown=True)
     report = REPORTS.get(req.report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Generate a storyboard first.")
 
     question = (req.question or "").strip()
+    detected = None
     if req.audio_base64:
         try:
             data = base64.b64decode(req.audio_base64)
-            question = svc.transcribe(
+            # "unknown" lets Saaras auto-detect the spoken language.
+            question, detected = svc.transcribe(
                 data, "doubt.webm", req.audio_mime, req.language_code
             )
         except Exception as exc:  # noqa: BLE001
@@ -206,9 +210,18 @@ async def ask_doubt(req: AskDoubtRequest) -> dict:
     if not question:
         raise HTTPException(status_code=400, detail="No question heard. Speak or type a doubt.")
 
+    # Answer in the detected language for voice doubts; a typed doubt with
+    # auto-detect selected falls back to the report's language.
+    if req.language_code != "unknown":
+        answer_lang = req.language_code
+    else:
+        answer_lang = detected or report.get("language_code") or "en-IN"
+        if answer_lang not in LANGUAGES:
+            answer_lang = "en-IN"
+
     try:
         answer = svc.chat_json(
-            DOUBT_SYSTEM.format(language=language_name(req.language_code)),
+            DOUBT_SYSTEM.format(language=language_name(answer_lang)),
             f"CONTEXT:\n{report['context_text']}\n\nPATIENT'S DOUBT: {question}",
             temperature=0.4,
         )
@@ -216,14 +229,16 @@ async def ask_doubt(req: AskDoubtRequest) -> dict:
         raise HTTPException(status_code=502, detail=f"Doubt answering failed: {exc}") from exc
 
     try:
-        audio = svc.speak(answer.get("answer_text", ""), req.language_code)
+        audio = svc.speak(answer.get("answer_text", ""), answer_lang)
     except Exception:  # noqa: BLE001 - answer still works without audio
         audio = None
 
     return {
         "transcript": question,
         "answer": answer,
-        "tts_available": LANGUAGES[req.language_code]["tts"],
+        "answer_language": answer_lang,
+        "detected_language": answer_lang if req.language_code == "unknown" else None,
+        "tts_available": LANGUAGES[answer_lang]["tts"],
         "audio_base64": audio,
     }
 

@@ -91,7 +91,7 @@
     <!-- Doubt drawer -->
     <section class="card doubt-card" id="doubt">
       <h2>🎙️ Puchho Doctor Se</h2>
-      <p class="muted doubt-hint">Hold the mic for ~5 seconds, tap a sample doubt, or type below — every answer is checked against <em>your</em> report, and dose changes are always routed to a real doctor.</p>
+      <p class="muted doubt-hint">Hold the mic and speak in <strong>any</strong> language — we detect it automatically. Or tap a sample doubt (🔊 to hear it first), or type below. Every answer plays out loud, and dose changes are always routed to a real doctor.</p>
       <div id="chips" class="chips"></div>
       <div class="ask-row">
         <input id="question" placeholder="Type your doubt…" autocomplete="off" />
@@ -102,6 +102,7 @@
       <div id="answer" class="hidden">
         <div class="answer-head">
           <span class="badge" id="safety-badge"></span>
+          <span class="lang-pill hidden" id="detected-lang"></span>
           <span class="checked" id="checked"></span>
         </div>
         <div class="say-row">

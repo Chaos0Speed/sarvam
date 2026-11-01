@@ -10,6 +10,8 @@ const state = {
   storyAudio: null,
   transcript: "",
   answerText: "",
+  activeLang: "hi-IN", // concrete language used by all 🔊 buttons
+  langNames: {}, // code -> "Tamil (தமிழ்)"
   recorder: null,
   chunks: [],
 };
@@ -43,7 +45,7 @@ async function speak(text, btn) {
   if (playingBtn === btn) { stopAudio(); return; } // toggle off
   stopAudio();
 
-  const lang = $("language").value;
+  const lang = state.activeLang;
   const key = `${lang}|${clean}`;
   let uri = audioCache.get(key);
 
@@ -104,7 +106,11 @@ async function init() {
     label.textContent = f ? `📄 ${f.name}` : "Click to choose a photo or PDF";
     label.parentElement.classList.toggle("has-file", !!f);
   });
-  $("language").addEventListener("change", () => { stopAudio(); translateChips().catch(console.error); });
+  $("language").addEventListener("change", () => {
+    stopAudio();
+    if ($("language").value !== "unknown") state.activeLang = $("language").value;
+    translateChips().catch(console.error);
+  });
   $("analyze").addEventListener("click", analyze);
   $("ask").addEventListener("click", askTyped);
   $("question").addEventListener("keydown", (e) => { if (e.key === "Enter") askTyped(); });
@@ -119,6 +125,7 @@ async function loadLanguages() {
   const data = await res.json();
   const sel = $("language");
   for (const [code, info] of Object.entries(data.languages)) {
+    state.langNames[code] = `${info.native} — ${info.name}`;
     const opt = document.createElement("option");
     opt.value = code;
     opt.textContent = info.tts
@@ -126,6 +133,11 @@ async function loadLanguages() {
       : `${info.native} — ${info.name} (text only)`;
     sel.appendChild(opt);
   }
+  // Voice chat: let Saaras auto-detect the spoken language.
+  const auto = document.createElement("option");
+  auto.value = "unknown";
+  auto.textContent = "🌐 Auto-detect — speak in any language";
+  sel.insertBefore(auto, sel.firstChild);
   sel.value = data.default;
 }
 
@@ -279,10 +291,14 @@ function renderChips(texts) {
   const chips = $("chips");
   chips.innerHTML = "";
   (texts || []).forEach((text) => {
-    const chip = document.createElement("button");
+    const chip = document.createElement("div");
     chip.className = "chip";
-    chip.textContent = text;
-    chip.addEventListener("click", () => ask(text));
+    const askBtn = document.createElement("button");
+    askBtn.className = "chip-ask";
+    askBtn.textContent = text;
+    askBtn.addEventListener("click", () => ask(text));
+    chip.appendChild(askBtn);
+    chip.appendChild(makeSpeakButton(text, "Listen to this prompt"));
     chips.appendChild(chip);
   });
 }
@@ -290,7 +306,10 @@ function renderChips(texts) {
 async function translateChips() {
   if (!state.sampleDoubts.length || state.currentPreset === "upload") return;
   const lang = $("language").value;
-  if (lang === "hi-IN" || lang === "en-IN") { renderChips(state.sampleDoubts); return; }
+  if (lang === "unknown" || lang === "hi-IN" || lang === "en-IN") {
+    renderChips(state.sampleDoubts);
+    return;
+  }
   if (state.translationsCache[lang]) { renderChips(state.translationsCache[lang]); return; }
   const res = await fetch("/api/translate-samples", {
     method: "POST",
@@ -346,6 +365,17 @@ function renderAnswer(data) {
   const checked = [a.checked_pill, a.checked_lab].filter(Boolean).join(" + ");
   $("checked").textContent = checked ? `Checked: ${checked}` : "";
 
+  // Voice chat auto-detect: surface what was heard, and aim every 🔊
+  // button (and the auto-played answer) at the detected language.
+  const langPill = $("detected-lang");
+  if (data.detected_language && state.langNames[data.detected_language]) {
+    langPill.classList.remove("hidden");
+    langPill.textContent = `🌐 Heard in: ${state.langNames[data.detected_language]}`;
+    state.activeLang = data.detected_language;
+  } else {
+    langPill.classList.add("hidden");
+  }
+
   state.transcript = data.transcript || "";
   state.answerText = a.answer_text || "";
   $("transcript").textContent = `You asked: "${data.transcript}"`;
@@ -359,8 +389,12 @@ function renderAnswer(data) {
   if (!data.tts_available) {
     $("tts-note").textContent = "Voice output isn't available for this language yet — showing text.";
   }
-  // prime the two answer speaker buttons' cache so first tap is instant
-  if (data.audio_base64) audioCache.set(`${$("language").value}|${state.answerText}`, `data:audio/mpeg;base64,${data.audio_base64}`);
+
+  // Auto-play the spoken answer: the whole point is zero-reading use.
+  if (data.audio_base64) {
+    audioCache.set(`${state.activeLang}|${state.answerText}`, `data:audio/mpeg;base64,${data.audio_base64}`);
+    play(data.audio_base64);
+  }
 }
 
 /* ---------- mic ---------- */

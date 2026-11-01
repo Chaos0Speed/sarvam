@@ -336,19 +336,29 @@ select:focus, input#question:focus {
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 1px solid var(--sage-line);
   background: var(--sage-soft);
-  color: var(--ink);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 4px 5px 4px 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.chip:hover { background: var(--sage); border-color: #C4CDC1; }
+.chip-ask {
+  border: none;
+  background: none;
   font: inherit;
   font-size: 0.83rem;
   font-weight: 500;
+  color: var(--ink);
   cursor: pointer;
-  transition: background 0.15s, transform 0.05s, border-color 0.15s;
+  padding: 4px 2px 4px 8px;
+  text-align: left;
 }
-.chip:hover { background: var(--sage); border-color: #C4CDC1; }
-.chip:active { transform: scale(0.98); }
+.chip-ask:hover { color: var(--accent-dark); }
+.chip .icon-speak { width: 26px; height: 26px; font-size: 0.72rem; }
 
 .ask-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .ask-row input { flex: 1; min-width: 220px; width: auto; }
@@ -375,6 +385,14 @@ select:focus, input#question:focus {
 .badge.safe { background: #E6F0E6; color: var(--green); }
 .badge.caution { background: #F7EDDD; color: var(--amber); }
 .badge.doctor { background: #F6E3DE; color: var(--danger); }
+.lang-pill {
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--sage);
+  color: var(--ink);
+}
 .checked { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
 
 .say-row { display: flex; gap: 10px; align-items: flex-start; }
