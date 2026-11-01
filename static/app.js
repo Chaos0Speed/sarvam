@@ -1,24 +1,28 @@
-/* Ghar Ka Doctor — frontend logic (vanilla JS, no build step) */
+/* Ghar Ka Doctor — frontend logic (vanilla JS, no build step)
+
+   Session flow: a welcome screen asks WHICH case + WHICH language at the
+   start of every session; upload is a separate card from the demo cases. */
 
 const $ = (id) => document.getElementById(id);
 
 const state = {
   reportId: null,
-  currentPreset: "case-a",
+  selectedCase: "case-a", // "case-a" | "case-b" | "upload"
+  presetMeta: {},         // id -> {title, description}
   sampleDoubts: [],
-  translationsCache: {}, // language_code -> [translated doubts]
+  translationsCache: {},  // language_code -> [translated doubts]
   storyAudio: null,
   transcript: "",
   answerText: "",
-  activeLang: "hi-IN", // concrete language used by all 🔊 buttons
-  langNames: {}, // code -> "Tamil (தமிழ்)"
+  activeLang: "hi-IN",    // concrete language used by all 🔊 buttons
+  langNames: {},          // code -> "Tamil (தமிழ்)"
   recorder: null,
   chunks: [],
 };
 
 /* ---------- audio everywhere ----------
-   One shared helper: every 🔊 button on the page speaks its text via
-   POST /api/speak, cached per (language, text) so nothing is asked twice. */
+   One shared helper: every 🔊 button speaks its text via POST /api/speak,
+   cached per (language, text) so nothing is asked twice. */
 
 const audioCache = new Map();
 let currentAudio = null;
@@ -89,35 +93,13 @@ function makeSpeakButton(text, title = "Listen to this") {
   return btn;
 }
 
-/* ---------- init ---------- */
+/* ---------- init & session flow ---------- */
 
 async function init() {
   await loadLanguages();
-  loadSampleDoubts(state.currentPreset);
-
-  $("preset").addEventListener("change", () => {
-    state.currentPreset = $("preset").value;
-    $("file-field").classList.toggle("hidden", state.currentPreset !== "upload");
-    if (state.currentPreset !== "upload") loadSampleDoubts(state.currentPreset);
-  });
-  $("file").addEventListener("change", () => {
-    const f = $("file").files[0];
-    const label = $("file-name");
-    label.textContent = f ? `📄 ${f.name}` : "Click to choose a photo or PDF";
-    label.parentElement.classList.toggle("has-file", !!f);
-  });
-  $("language").addEventListener("change", () => {
-    stopAudio();
-    if ($("language").value !== "unknown") state.activeLang = $("language").value;
-    translateChips().catch(console.error);
-  });
-  $("analyze").addEventListener("click", analyze);
-  $("ask").addEventListener("click", askTyped);
-  $("question").addEventListener("keydown", (e) => { if (e.key === "Enter") askTyped(); });
-  $("play-story").addEventListener("click", () => play(state.storyAudio));
-  $("speak-transcript").addEventListener("click", () => speak(state.transcript, $("speak-transcript")));
-  $("speak-answer").addEventListener("click", () => speak(state.answerText, $("speak-answer")));
-  setupMic();
+  await loadWelcomeCards();
+  wireWelcome();
+  wireSessionControls();
 }
 
 async function loadLanguages() {
@@ -136,37 +118,66 @@ async function loadLanguages() {
   // Voice chat: let Saaras auto-detect the spoken language.
   const auto = document.createElement("option");
   auto.value = "unknown";
-  auto.textContent = "🌐 Auto-detect — speak in any language";
+  auto.textContent = "🌐 Auto-detect — spoken doubts in any language";
   sel.insertBefore(auto, sel.firstChild);
   sel.value = data.default;
 }
 
-async function loadSampleDoubts(presetId) {
-  const res = await fetch("/api/presets");
-  const presets = await res.json();
-  const preset = presets.find((p) => p.id === presetId);
-  state.sampleDoubts = preset ? preset.sample_doubts : [];
-  state.translationsCache = {};
-  renderChips(state.sampleDoubts);
+async function loadWelcomeCards() {
+  const presets = await (await fetch("/api/presets")).json();
+  for (const p of presets) state.presetMeta[p.id] = p;
+  document.querySelectorAll(".case-card[data-case]").forEach((card) => {
+    const meta = state.presetMeta[card.dataset.case];
+    if (meta) card.querySelector(".case-desc").textContent = meta.description;
+  });
 }
 
-/* ---------- storyboard ---------- */
+function wireWelcome() {
+  // Case cards: pick one
+  document.querySelectorAll(".case-card[data-case]").forEach((card) => {
+    card.addEventListener("click", () => selectCase(card.dataset.case));
+  });
 
-async function analyze() {
-  const btn = $("analyze");
-  const status = $("setup-status");
+  // Upload is a separate card — choosing a file switches the session to it
+  $("file").addEventListener("change", () => {
+    const f = $("file").files[0];
+    const label = $("file-name");
+    label.textContent = f ? `📄 ${f.name}` : "Click to choose a photo or PDF — I'll read it with Vision OCR";
+    label.parentElement.classList.toggle("has-file", !!f);
+    if (f) selectCase("upload");
+  });
+  $("upload-card").addEventListener("click", (e) => {
+    if (e.target.closest("label") || e.target.closest("input")) return;
+    $("file").click(); // clicking the card (not the drop zone) opens the picker
+  });
+
+  $("start").addEventListener("click", startSession);
+}
+
+function selectCase(id) {
+  state.selectedCase = id;
+  document.querySelectorAll(".case-card").forEach((c) => c.classList.remove("selected"));
+  const el = document.querySelector(id === "upload" ? "#upload-card" : `.case-card[data-case="${id}"]`);
+  if (el) el.classList.add("selected");
+}
+
+async function startSession() {
+  const btn = $("start");
+  const status = $("welcome-status");
   btn.disabled = true;
   flash(status, "Reading the report…");
 
   try {
     const fd = new FormData();
-    fd.append("language_code", $("language").value);
-    if (state.currentPreset === "upload") {
+    const lang = $("language").value;
+    // Auto-detect applies to spoken doubts; the report itself needs a real language.
+    fd.append("language_code", lang === "unknown" ? "hi-IN" : lang);
+    if (state.selectedCase === "upload") {
       const file = $("file").files[0];
-      if (!file) { flash(status, "Choose a report photo or PDF first.", true); return; }
+      if (!file) { flash(status, "Choose a report photo or PDF first — or pick Case A / B.", true); return; }
       fd.append("file", file);
     } else {
-      fd.append("preset_id", state.currentPreset);
+      fd.append("preset_id", state.selectedCase);
     }
 
     const res = await fetch("/api/analyze-report", { method: "POST", body: fd });
@@ -175,16 +186,110 @@ async function analyze() {
 
     state.reportId = data.report_id;
     state.storyAudio = data.audio_base64;
+
+    // Move the language select into the session bar and enter the app.
+    $("session-lang-slot").appendChild($("language"));
+    $("session-case").textContent =
+      state.selectedCase === "upload"
+        ? "📄 Your uploaded report"
+        : `📋 ${state.presetMeta[state.selectedCase]?.title || state.selectedCase}`;
+    $("welcome").classList.add("hidden");
+    $("session-bar").classList.remove("hidden");
+    $("board").classList.remove("hidden");
+    $("doubt").classList.remove("hidden");
+
     renderBoard(data);
-    $("board").scrollIntoView({ behavior: "smooth", block: "start" });
-    flash(status, "Storyboard ready — ask your doubts below.");
-    translateChips().catch(console.error);
+    loadSampleDoubts(state.selectedCase === "upload" ? null : state.selectedCase);
+    if (state.storyAudio) play(state.storyAudio); // audio-first session start
+    window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (err) {
     flash(status, `⚠️ ${err.message}`, true);
   } finally {
     btn.disabled = false;
   }
 }
+
+function wireSessionControls() {
+  $("change-case").addEventListener("click", () => {
+    stopAudio();
+    state.reportId = null;
+    state.storyAudio = null;
+    state.transcript = "";
+    state.answerText = "";
+    $("board").classList.add("hidden");
+    $("doubt").classList.add("hidden");
+    $("session-bar").classList.add("hidden");
+    $("answer").classList.add("hidden");
+    flash($("doubt-status"), "");
+    $("welcome-status").textContent = "";
+    $("welcome-lang-slot").appendChild($("language")); // move select back
+    $("welcome").classList.remove("hidden");
+    window.scrollTo({ top: 0 });
+  });
+
+  $("language").addEventListener("change", () => {
+    stopAudio();
+    if ($("language").value !== "unknown") state.activeLang = $("language").value;
+    translateChips().catch(console.error);
+  });
+
+  $("ask").addEventListener("click", askTyped);
+  $("question").addEventListener("keydown", (e) => { if (e.key === "Enter") askTyped(); });
+  $("play-story").addEventListener("click", () => play(state.storyAudio));
+  $("speak-transcript").addEventListener("click", () => speak(state.transcript, $("speak-transcript")));
+  $("speak-answer").addEventListener("click", () => speak(state.answerText, $("speak-answer")));
+  setupMic();
+}
+
+/* ---------- sample doubts ---------- */
+
+async function loadSampleDoubts(presetId) {
+  if (!presetId) { state.sampleDoubts = []; renderChips([]); return; }
+  const res = await fetch("/api/presets");
+  const presets = await res.json();
+  const preset = presets.find((p) => p.id === presetId);
+  state.sampleDoubts = preset ? preset.sample_doubts : [];
+  state.translationsCache = {};
+  renderChips(state.sampleDoubts);
+}
+
+function renderChips(texts) {
+  const chips = $("chips");
+  chips.innerHTML = "";
+  (texts || []).forEach((text) => {
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    const askBtn = document.createElement("button");
+    askBtn.className = "chip-ask";
+    askBtn.textContent = text;
+    askBtn.addEventListener("click", () => ask(text));
+    chip.appendChild(askBtn);
+    chip.appendChild(makeSpeakButton(text, "Listen to this prompt"));
+    chips.appendChild(chip);
+  });
+}
+
+async function translateChips() {
+  if (!state.sampleDoubts.length || state.selectedCase === "upload") return;
+  const lang = $("language").value;
+  if (lang === "unknown" || lang === "hi-IN" || lang === "en-IN") {
+    renderChips(state.sampleDoubts);
+    return;
+  }
+  if (state.translationsCache[lang]) { renderChips(state.translationsCache[lang]); return; }
+  const res = await fetch("/api/translate-samples", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ texts: state.sampleDoubts, language_code: lang }),
+  });
+  const data = await res.json();
+  if (data.translations) {
+    state.translationsCache[lang] = data.translations;
+    renderChips(data.translations);
+  }
+}
+
+/* ---------- storyboard ---------- */
 
 function renderBoard(data) {
   const story = data.story || {};
@@ -287,42 +392,6 @@ function renderPill(pill) {
 
 /* ---------- doubts ---------- */
 
-function renderChips(texts) {
-  const chips = $("chips");
-  chips.innerHTML = "";
-  (texts || []).forEach((text) => {
-    const chip = document.createElement("div");
-    chip.className = "chip";
-    const askBtn = document.createElement("button");
-    askBtn.className = "chip-ask";
-    askBtn.textContent = text;
-    askBtn.addEventListener("click", () => ask(text));
-    chip.appendChild(askBtn);
-    chip.appendChild(makeSpeakButton(text, "Listen to this prompt"));
-    chips.appendChild(chip);
-  });
-}
-
-async function translateChips() {
-  if (!state.sampleDoubts.length || state.currentPreset === "upload") return;
-  const lang = $("language").value;
-  if (lang === "unknown" || lang === "hi-IN" || lang === "en-IN") {
-    renderChips(state.sampleDoubts);
-    return;
-  }
-  if (state.translationsCache[lang]) { renderChips(state.translationsCache[lang]); return; }
-  const res = await fetch("/api/translate-samples", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ texts: state.sampleDoubts, language_code: lang }),
-  });
-  const data = await res.json();
-  if (data.translations) {
-    state.translationsCache[lang] = data.translations;
-    renderChips(data.translations);
-  }
-}
-
 async function askTyped() {
   const q = $("question").value.trim();
   if (!q) { flash($("doubt-status"), "Type a doubt or hold the mic.", true); return; }
@@ -405,7 +474,7 @@ function setupMic() {
 
   const start = async (e) => {
     e.preventDefault();
-    if (!state.reportId) { flash($("doubt-status"), "Generate a storyboard first.", true); return; }
+    if (!state.reportId) { flash($("doubt-status"), "Start a session first.", true); return; }
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {

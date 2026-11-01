@@ -115,16 +115,143 @@ main {
 .muted { color: var(--muted); }
 .hidden { display: none !important; }
 
-/* ---------- setup bar ---------- */
+/* ---------- welcome overlay (session start) ---------- */
 
-.setup-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: flex-end;
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(44, 48, 46, 0.45);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  overflow-y: auto;
 }
 
-.field { display: grid; gap: 6px; flex: 1; min-width: 200px; }
+.welcome-card {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--sage-line);
+  border-radius: 22px;
+  box-shadow: 0 24px 80px -24px rgba(44, 48, 46, 0.45);
+  padding: 28px 26px 24px;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  text-align: center;
+}
+
+.welcome-logo { width: 60px; height: 60px; font-size: 30px; }
+
+.welcome-card h1 { margin: 4px 0 0; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.welcome-card .tagline { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+.welcome-q {
+  margin: 8px 0 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.case-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+@media (max-width: 560px) { .case-cards { grid-template-columns: 1fr; } }
+
+.case-card {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+  width: 100%;
+  padding: 16px 14px;
+  background: var(--card);
+  border: 2px solid var(--sage-line);
+  border-radius: 16px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.case-card:hover { border-color: #C4CDC1; }
+.case-card.selected {
+  border-color: var(--accent);
+  background: #FDF6F3;
+  box-shadow: 0 0 0 3px rgba(200, 109, 81, 0.14);
+}
+
+.case-icon { font-size: 1.6rem; }
+.case-title { font-family: var(--font-head); font-weight: 700; font-size: 0.92rem; }
+.case-desc { font-size: 0.8rem; color: var(--muted); }
+
+/* Upload is a SEPARATE card, visually distinct from the demo cases */
+.upload-card {
+  border-style: dashed;
+  border-width: 1.5px;
+  background: var(--sage-soft);
+  padding: 14px;
+  gap: 10px;
+  cursor: default;
+}
+.upload-card.selected {
+  border-style: solid;
+  border-color: var(--accent);
+  background: #FDF6F3;
+  box-shadow: 0 0 0 3px rgba(200, 109, 81, 0.14);
+}
+.upload-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+.upload-card .file-drop { width: 100%; text-align: center; }
+
+.welcome-lang {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--sage-line);
+  border-radius: 14px;
+  padding: 12px 14px 14px;
+}
+.welcome-lang .field-label { text-align: center; }
+.lang-slot { display: inline-block; width: 100%; max-width: 380px; }
+.lang-slot select { width: 100%; }
+.lang-hint { font-size: 0.74rem; color: var(--muted); }
+
+.big-btn { width: 100%; padding: 14px; font-size: 1rem; border-radius: 14px; }
+
+/* ---------- session bar ---------- */
+
+.session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+}
+.session-bar.hidden { display: none !important; }
+.session-case {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.session-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.session-controls .lang-slot { width: auto; max-width: none; }
+
+.btn.ghost { background: var(--sage-soft); color: var(--ink); border: 1px solid var(--sage-line); }
+.btn.ghost:hover { background: var(--sage); }
+
 .field-label {
   font-size: 0.72rem;
   font-weight: 700;

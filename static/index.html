@@ -12,6 +12,49 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
+  <!-- Session-start: asked at the beginning of EVERY session -->
+  <div class="overlay" id="welcome">
+    <div class="welcome-card">
+      <div class="logo welcome-logo" aria-hidden="true">🩺</div>
+      <h1>Ghar Ka Doctor</h1>
+      <p class="tagline">"Parchi-se-Puchho" — your lab report &amp; prescription, explained in your language</p>
+
+      <h2 class="welcome-q">Which case should I consider while answering?</h2>
+      <div class="case-cards">
+        <button type="button" class="case-card selected" data-case="case-a">
+          <span class="case-icon">🩸</span>
+          <span class="case-title">Case A — Diabetes + Thyroid</span>
+          <span class="case-desc">HbA1c &amp; TSH high. Thyronorm, Glycomet GP 1, Shelcal.</span>
+        </button>
+        <button type="button" class="case-card" data-case="case-b">
+          <span class="case-icon">🌡️</span>
+          <span class="case-title">Case B — Post-Fever + Antibiotic</span>
+          <span class="case-desc">Fever resolving. Azithral 500, Pantocid DSR, Dolo 650.</span>
+        </button>
+      </div>
+
+      <div class="case-card upload-card" id="upload-card">
+        <div class="upload-head">
+          <span class="case-icon">📤</span>
+          <span class="case-title">Or upload a real report / prescription</span>
+        </div>
+        <label class="file-drop" for="file">
+          <input type="file" id="file" accept="image/*,.pdf" hidden />
+          <span id="file-name">Click to choose a photo or PDF — I'll read it with Vision OCR</span>
+        </label>
+      </div>
+
+      <div class="welcome-lang">
+        <span class="field-label">Answer in</span>
+        <span id="welcome-lang-slot" class="lang-slot"></span>
+        <span class="lang-hint">🌐 Auto-detect (in the list) applies to your spoken doubts.</span>
+      </div>
+
+      <button id="start" class="btn primary big-btn">Start session →</button>
+      <p id="welcome-status" class="status"></p>
+    </div>
+  </div>
+
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
@@ -26,31 +69,13 @@
   </header>
 
   <main>
-    <!-- Setup -->
-    <section class="card setup-card">
-      <div class="setup-grid">
-        <div class="field">
-          <span class="field-label">Clinical case</span>
-          <select id="preset">
-            <option value="case-a">Case A — Diabetes + Thyroid</option>
-            <option value="case-b">Case B — Post-Fever + Antibiotic</option>
-            <option value="upload">📤 Upload report / prescription</option>
-          </select>
-        </div>
-        <div class="field hidden" id="file-field">
-          <span class="field-label">Report (photo or PDF)</span>
-          <label class="file-drop" for="file">
-            <input type="file" id="file" accept="image/*,.pdf" hidden />
-            <span id="file-name">Click to choose a photo or PDF</span>
-          </label>
-        </div>
-        <div class="field">
-          <span class="field-label">Language</span>
-          <select id="language"></select>
-        </div>
-        <button id="analyze" class="btn primary">✨ Generate Storyboard</button>
+    <!-- Current session bar -->
+    <section class="card session-bar hidden" id="session-bar">
+      <span class="session-case" id="session-case"></span>
+      <div class="session-controls">
+        <span class="lang-slot" id="session-lang-slot"></span>
+        <button id="change-case" class="btn ghost">↺ Change case</button>
       </div>
-      <p id="setup-status" class="status"></p>
     </section>
 
     <!-- Storyboard -->
@@ -89,7 +114,7 @@
     </section>
 
     <!-- Doubt drawer -->
-    <section class="card doubt-card" id="doubt">
+    <section class="card doubt-card hidden" id="doubt">
       <h2>🎙️ Puchho Doctor Se</h2>
       <p class="muted doubt-hint">Hold the mic and speak in <strong>any</strong> language — we detect it automatically. Or tap a sample doubt (🔊 to hear it first), or type below. Every answer plays out loud, and dose changes are always routed to a real doctor.</p>
       <div id="chips" class="chips"></div>
