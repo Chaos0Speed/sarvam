@@ -107,36 +107,89 @@ function decorateDataSay() {
 /* ---------- init & session flow ---------- */
 
 async function init() {
-  await loadLanguages();
-  await loadWelcomeCards();
+  // Wire ALL event listeners FIRST, synchronously — clicks must work even
+  // if the network is down, the server is cold, or a fetch fails.
   wireWelcome();
   wireSessionControls();
   decorateDataSay();
+  window.addEventListener("error", (e) => showFatal(e.message));
+  window.addEventListener("unhandledrejection", (e) => showFatal(String(e.reason)));
+
+  await safeLoad(loadLanguages, "language list");
+  await safeLoad(loadWelcomeCards, "demo cases");
 }
 
+function showFatal(msg) {
+  const el = $("fatal-error");
+  if (!el) return;
+  el.textContent = `⚠️ ${msg}. If this keeps happening, hard-refresh (Ctrl+Shift+R).`;
+  el.classList.remove("hidden");
+}
+
+async function safeLoad(fn, label) {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(`${label} failed:`, err);
+    showFatal(`Couldn't load the ${label}`);
+  }
+}
+
+const LANG_FALLBACK = [
+  ["hi-IN", "हिन्दी — Hindi"],
+  ["en-IN", "English — English"],
+];
+
 async function loadLanguages() {
-  const res = await fetch("/api/languages");
-  const data = await res.json();
-  const sel = $("language");
-  for (const [code, info] of Object.entries(data.languages)) {
-    state.langNames[code] = `${info.native} — ${info.name}`;
-    const opt = document.createElement("option");
-    opt.value = code;
-    opt.textContent = info.tts
-      ? `${info.native} — ${info.name}`
-      : `${info.native} — ${info.name} (text only)`;
-    sel.appendChild(opt);
+  try {
+    const res = await fetch("/api/languages");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const sel = $("language");
+    for (const [code, info] of Object.entries(data.languages)) {
+      state.langNames[code] = `${info.native} — ${info.name}`;
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = info.tts
+        ? `${info.native} — ${info.name}`
+        : `${info.native} — ${info.name} (text only)`;
+      sel.appendChild(opt);
+    }
+    sel.value = data.default;
+  } catch (err) {
+    // Offline fallback so the session can still start.
+    const sel = $("language");
+    if (!sel.options.length) {
+      for (const [code, label] of LANG_FALLBACK) {
+        const opt = document.createElement("option");
+        opt.value = code;
+        opt.textContent = label;
+        sel.appendChild(opt);
+      }
+      sel.value = "hi-IN";
+    }
+    throw err; // safeLoad shows the banner
   }
   // Voice chat: let Saaras auto-detect the spoken language.
-  const auto = document.createElement("option");
-  auto.value = "unknown";
-  auto.textContent = "🌐 Auto-detect — spoken doubts in any language";
-  sel.insertBefore(auto, sel.firstChild);
-  sel.value = data.default;
+  const sel = $("language");
+  if (!sel.querySelector('option[value="unknown"]')) {
+    const auto = document.createElement("option");
+    auto.value = "unknown";
+    auto.textContent = "🌐 Auto-detect — spoken doubts in any language";
+    sel.insertBefore(auto, sel.firstChild);
+  }
 }
 
 async function loadWelcomeCards() {
-  const presets = await (await fetch("/api/presets")).json();
+  let presets = [];
+  try {
+    const res = await fetch("/api/presets");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    presets = await res.json();
+  } catch (err) {
+    console.error("presets fetch failed (using static titles):", err);
+    return; // non-fatal: static titles/descriptions are already in the HTML
+  }
   for (const p of presets) state.presetMeta[p.id] = p;
   document.querySelectorAll(".case-card[data-case]").forEach((card) => {
     const meta = state.presetMeta[card.dataset.case];

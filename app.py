@@ -94,7 +94,11 @@ def _require_language(code: str, allow_unknown: bool = False) -> None:
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(BASE_DIR / "static" / "index.html")
+    # no-cache: the HTML must never go stale against versioned static assets
+    return FileResponse(
+        BASE_DIR / "static" / "index.html",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/api/languages")
