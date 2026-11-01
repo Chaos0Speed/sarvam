@@ -46,7 +46,7 @@ function stopAudio() {
 async function speak(text, btn) {
   const clean = (text || "").trim();
   if (!clean) return;
-  if (playingBtn === btn) { stopAudio(); return; } // toggle off
+  if (btn && playingBtn === btn) { stopAudio(); return; } // toggle off
   stopAudio();
 
   const lang = state.activeLang;
@@ -71,7 +71,7 @@ async function speak(text, btn) {
   }
 
   if (!uri) {
-    flash($("doubt-status"), "Voice isn't available for this language — showing text.", true);
+    flash($("doubt-status"), "Voice isn't available for this language — showing text.", true, false);
     return;
   }
 
@@ -89,8 +89,19 @@ function makeSpeakButton(text, title = "Listen to this") {
   btn.title = title;
   btn.setAttribute("aria-label", title);
   btn.textContent = "🔊";
-  btn.addEventListener("click", () => speak(text, btn));
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation(); // never trigger the card the button lives in
+    speak(text, btn);
+  });
   return btn;
+}
+
+/* Every element with data-say gets a 🔊 button AFTER its text. */
+function decorateDataSay() {
+  document.querySelectorAll("[data-say]").forEach((el) => {
+    if (el.querySelector(":scope > .icon-speak")) return; // idempotent
+    el.appendChild(makeSpeakButton(el.dataset.say, "Listen"));
+  });
 }
 
 /* ---------- init & session flow ---------- */
@@ -100,6 +111,7 @@ async function init() {
   await loadWelcomeCards();
   wireWelcome();
   wireSessionControls();
+  decorateDataSay();
 }
 
 async function loadLanguages() {
@@ -128,8 +140,20 @@ async function loadWelcomeCards() {
   for (const p of presets) state.presetMeta[p.id] = p;
   document.querySelectorAll(".case-card[data-case]").forEach((card) => {
     const meta = state.presetMeta[card.dataset.case];
-    if (meta) card.querySelector(".case-desc").textContent = meta.description;
+    if (!meta) return;
+    card.querySelector(".case-desc").textContent = meta.description;
+    // Non-readers must be able to choose: speak title + description
+    card.appendChild(
+      makeSpeakButton(`${meta.title}. ${meta.description}`, "Listen to this case")
+    );
   });
+  // Upload card: speak its purpose too
+  $("upload-card").appendChild(
+    makeSpeakButton(
+      "Or upload a real report or prescription. Click below to choose a photo or PDF, and I will read it for you.",
+      "Listen to this option"
+    )
+  );
 }
 
 function wireWelcome() {
@@ -147,7 +171,7 @@ function wireWelcome() {
     if (f) selectCase("upload");
   });
   $("upload-card").addEventListener("click", (e) => {
-    if (e.target.closest("label") || e.target.closest("input")) return;
+    if (e.target.closest("label") || e.target.closest("input") || e.target.closest(".icon-speak")) return;
     $("file").click(); // clicking the card (not the drop zone) opens the picker
   });
 
@@ -189,10 +213,16 @@ async function startSession() {
 
     // Move the language select into the session bar and enter the app.
     $("session-lang-slot").appendChild($("language"));
-    $("session-case").textContent =
+    const caseTitle =
       state.selectedCase === "upload"
         ? "📄 Your uploaded report"
         : `📋 ${state.presetMeta[state.selectedCase]?.title || state.selectedCase}`;
+    const sc = $("session-case");
+    sc.textContent = caseTitle; // clears any previous 🔊
+    sc.appendChild(makeSpeakButton(
+      caseTitle.replace(/^📄|^📋/, "").trim(),
+      "Listen to the active case"
+    ));
     $("welcome").classList.add("hidden");
     $("session-bar").classList.remove("hidden");
     $("board").classList.remove("hidden");
@@ -238,6 +268,9 @@ function wireSessionControls() {
   $("play-story").addEventListener("click", () => play(state.storyAudio));
   $("speak-transcript").addEventListener("click", () => speak(state.transcript, $("speak-transcript")));
   $("speak-answer").addEventListener("click", () => speak(state.answerText, $("speak-answer")));
+  $("speak-safety").addEventListener("click", (e) => speak(state.safetySpeak, e.currentTarget));
+  $("speak-checked").addEventListener("click", (e) => speak(state.checkedText, e.currentTarget));
+  $("speak-misconception").addEventListener("click", (e) => speak(state.misconceptionText, e.currentTarget));
   setupMic();
 }
 
@@ -295,15 +328,23 @@ function renderBoard(data) {
   const story = data.story || {};
   $("board").classList.remove("hidden");
 
-  // Lab ➜ Pill map
+  // Patient summary — spoken too
+  const summaryCard = $("summary-card");
+  if (story.patient_summary) {
+    const p = $("patient-summary");
+    p.textContent = `👤 ${story.patient_summary}`;
+    p.appendChild(makeSpeakButton(story.patient_summary, "Listen to the summary"));
+    summaryCard.classList.remove("hidden");
+  } else {
+    summaryCard.classList.add("hidden");
+  }
+
+  // Lab ➜ Pill map — 🔊 sits AFTER everything on the card
   const links = $("lab-links");
   links.innerHTML = "";
   for (const lab of story.lab_links || []) {
     const card = document.createElement("div");
     card.className = `lab-card status-${lab.status || "normal"}`;
-
-    const top = document.createElement("div");
-    top.className = "lab-top";
 
     const main = document.createElement("div");
     main.className = "lab-main";
@@ -311,9 +352,7 @@ function renderBoard(data) {
       <div class="lab-marker">${escapeHtml(lab.marker)}
         <span class="lab-value">${escapeHtml(lab.value)}</span></div>
       <div class="lab-range">ref ${escapeHtml(lab.reference_range || "—")}</div>`;
-    top.appendChild(main);
-    if (lab.plain_meaning) top.appendChild(makeSpeakButton(lab.plain_meaning, "Explain this result"));
-    card.appendChild(top);
+    card.appendChild(main);
 
     if (lab.linked_medicine) {
       const med = document.createElement("div");
@@ -327,18 +366,37 @@ function renderBoard(data) {
       meaning.textContent = lab.plain_meaning;
       card.appendChild(meaning);
     }
+
+    const spoken = [
+      `${lab.marker}, ${lab.value}, ${lab.status || ""}.`,
+      lab.reference_range ? `Reference range ${lab.reference_range}.` : "",
+      lab.linked_medicine ? `Linked medicine ${lab.linked_medicine}.` : "",
+      lab.plain_meaning || "",
+    ].filter(Boolean).join(" ");
+    const foot = document.createElement("div");
+    foot.className = "card-foot";
+    foot.appendChild(makeSpeakButton(spoken, "Listen to this result"));
+    card.appendChild(foot);
+
     links.appendChild(card);
   }
   if (!(story.lab_links || []).length) {
     links.innerHTML = "<p class='muted'>No abnormal markers found in this report.</p>";
   }
 
-  // Schedule cards
+  // Schedule cards — each slot head (name + when) gets a 🔊 after it
   const slots = { morning: "slot-morning", afternoon: "slot-afternoon", night: "slot-night" };
   for (const [key, id] of Object.entries(slots)) {
     const el = $(id);
     const slot = (story.schedule || {})[key] || { label: "", pills: [] };
     el.querySelector(".slot-label").textContent = slot.label || "";
+    const head = el.querySelector(".slot-head");
+    const oldBtn = head.querySelector(".icon-speak");
+    if (oldBtn) oldBtn.remove();
+    head.appendChild(makeSpeakButton(
+      `${key[0].toUpperCase() + key.slice(1)}. ${slot.label || ""}`.trim(),
+      "Listen to this slot"
+    ));
     const pills = el.querySelector(".pills");
     pills.innerHTML = "";
     for (const pill of slot.pills || []) {
@@ -369,14 +427,10 @@ function renderBoard(data) {
 function renderPill(pill) {
   const div = document.createElement("div");
   div.className = "pill";
-  const top = document.createElement("div");
-  top.className = "pill-top";
-  const name = document.createElement("strong");
-  name.textContent = `💊 ${pill.name}`;
-  top.appendChild(name);
-  const spoken = [pill.name, pill.instruction, pill.note].filter(Boolean).join(". ");
-  top.appendChild(makeSpeakButton(spoken, "Listen to this medicine"));
-  div.appendChild(top);
+  const name = document.createElement("div");
+  name.className = "pill-top";
+  name.innerHTML = `<strong>💊 ${escapeHtml(pill.name)}</strong>`;
+  div.appendChild(name);
   if (pill.instruction) {
     const inst = document.createElement("span");
     inst.textContent = pill.instruction;
@@ -387,6 +441,12 @@ function renderPill(pill) {
     note.textContent = `⚠️ ${pill.note}`;
     div.appendChild(note);
   }
+  // 🔊 AFTER everything the pill says
+  const spoken = [pill.name, pill.instruction, pill.note].filter(Boolean).join(". ");
+  const foot = document.createElement("div");
+  foot.className = "card-foot";
+  foot.appendChild(makeSpeakButton(spoken, "Listen to this medicine"));
+  div.appendChild(foot);
   return div;
 }
 
@@ -424,15 +484,23 @@ function renderAnswer(data) {
   $("answer").classList.remove("hidden");
 
   const badge = $("safety-badge");
+  const safetyLabel = {
+    safe: "Safe action",
+    caution: "Caution or timing adjustment",
+    doctor: "Consult your doctor before changing anything",
+  }[a.safety_level] || a.safety_level || "";
   badge.textContent = {
     safe: "✅ Safe action",
     caution: "⚠️ Caution / timing",
     doctor: "🚩 Consult doctor",
   }[a.safety_level] || a.safety_level;
   badge.className = `badge ${a.safety_level || "caution"}`;
+  state.safetySpeak = safetyLabel;
 
   const checked = [a.checked_pill, a.checked_lab].filter(Boolean).join(" + ");
-  $("checked").textContent = checked ? `Checked: ${checked}` : "";
+  state.checkedText = checked ? `Checked: ${checked}` : "";
+  $("checked").textContent = state.checkedText;
+  $("speak-checked").classList.toggle("hidden", !checked);
 
   // Voice chat auto-detect: surface what was heard, and aim every 🔊
   // button (and the auto-played answer) at the detected language.
@@ -450,9 +518,12 @@ function renderAnswer(data) {
   $("transcript").textContent = `You asked: "${data.transcript}"`;
   $("answer-text").textContent = a.answer_text || "";
 
-  const mis = $("misconception");
-  mis.classList.toggle("hidden", !a.misconception_spotted);
-  if (a.misconception_spotted) mis.textContent = `Misconception spotted: ${a.misconception_spotted}`;
+  const misRow = $("misconception-row");
+  state.misconceptionText = a.misconception_spotted || "";
+  misRow.classList.toggle("hidden", !state.misconceptionText);
+  if (state.misconceptionText) {
+    $("misconception").textContent = `Misconception spotted: ${state.misconceptionText}`;
+  }
 
   $("tts-note").classList.toggle("hidden", data.tts_available);
   if (!data.tts_available) {
@@ -542,9 +613,12 @@ function play(b64) {
   currentAudio.play().catch(console.error);
 }
 
-function flash(el, msg, isError = false) {
+function flash(el, msg, isError = false, speakIt = isError) {
   el.textContent = msg;
   el.classList.toggle("error", !!isError);
+  // Errors talk too — but never re-speak the "voice unavailable" notice,
+  // or a TTS failure would loop forever.
+  if (speakIt && msg) speak(msg).catch(() => {});
 }
 
 function blobToBase64(blob) {

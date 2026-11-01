@@ -19,7 +19,7 @@
       <h1>Ghar Ka Doctor</h1>
       <p class="tagline">"Parchi-se-Puchho" — your lab report &amp; prescription, explained in your language</p>
 
-      <h2 class="welcome-q">Which case should I consider while answering?</h2>
+      <h2 class="welcome-q" data-say="Which case should I consider while answering? Pick a demo case below, or upload your own report.">Which case should I consider while answering?</h2>
       <div class="case-cards">
         <button type="button" class="case-card selected" data-case="case-a">
           <span class="case-icon">🩸</span>
@@ -47,7 +47,7 @@
       <div class="welcome-lang">
         <span class="field-label">Answer in</span>
         <span id="welcome-lang-slot" class="lang-slot"></span>
-        <span class="lang-hint">🌐 Auto-detect (in the list) applies to your spoken doubts.</span>
+        <span class="lang-hint" data-say="Auto detect applies to your spoken doubts. Pick the language you want the answers in.">🌐 Auto-detect (in the list) applies to your spoken doubts.</span>
       </div>
 
       <button id="start" class="btn primary big-btn">Start session →</button>
@@ -64,7 +64,7 @@
           <p class="tagline">"Parchi-se-Puchho" — your lab report &amp; prescription, explained in your language</p>
         </div>
       </div>
-      <span class="disclaimer-pill">⚠️ Patient education demo — not medical advice</span>
+      <span class="disclaimer-pill" data-say="Patient education demo only. This is not medical advice. Always follow your doctor's advice.">⚠️ Patient education demo — not medical advice</span>
     </div>
   </header>
 
@@ -80,10 +80,14 @@
 
     <!-- Storyboard -->
     <section id="board" class="hidden">
-      <h2 class="section-title">🔬 Lab ➜ Pill map <span class="section-hint">why each medicine is in your kit</span></h2>
+      <div class="card summary-card hidden" id="summary-card">
+        <p id="patient-summary"></p>
+      </div>
+
+      <h2 class="section-title" data-say="Lab to pill map. This shows which out-of-range result each medicine is treating.">🔬 Lab ➜ Pill map <span class="section-hint">why each medicine is in your kit</span></h2>
       <div id="lab-links" class="lab-grid"></div>
 
-      <h2 class="section-title">⏰ Daily medicine schedule <span class="section-hint">tap 🔊 next to anything to hear it</span></h2>
+      <h2 class="section-title" data-say="Daily medicine schedule. Tap the speaker next to any medicine to hear how to take it.">⏰ Daily medicine schedule <span class="section-hint">tap 🔊 next to anything to hear it</span></h2>
       <div class="grid3">
         <div class="card slot" id="slot-morning">
           <div class="slot-head morning"><span class="slot-emoji">☀️</span><div><h3>Morning</h3><p class="slot-label"></p></div></div>
@@ -108,15 +112,15 @@
       </div>
 
       <div class="card">
-        <h2>🧂 Kitchen guardrails</h2>
+        <h2 data-say="Kitchen guardrails. Simple do and don't rules for the kitchen.">🧂 Kitchen guardrails</h2>
         <ul id="guardrails" class="guard-list"></ul>
       </div>
     </section>
 
     <!-- Doubt drawer -->
     <section class="card doubt-card hidden" id="doubt">
-      <h2>🎙️ Puchho Doctor Se</h2>
-      <p class="muted doubt-hint">Hold the mic and speak in <strong>any</strong> language — we detect it automatically. Or tap a sample doubt (🔊 to hear it first), or type below. Every answer plays out loud, and dose changes are always routed to a real doctor.</p>
+      <h2 data-say="Puchho Doctor Se. Ask the doctor.">🎙️ Puchho Doctor Se</h2>
+      <p class="muted doubt-hint" data-say="Hold the mic and speak in any language. We detect it automatically. Or tap a sample doubt, hear it first with the speaker button, or type below. Every answer plays out loud, and dose changes are always routed to a real doctor.">Hold the mic and speak in <strong>any</strong> language — we detect it automatically. Or tap a sample doubt (🔊 to hear it first), or type below. Every answer plays out loud, and dose changes are always routed to a real doctor.</p>
       <div id="chips" class="chips"></div>
       <div class="ask-row">
         <input id="question" placeholder="Type your doubt…" autocomplete="off" />
@@ -127,18 +131,23 @@
       <div id="answer" class="hidden">
         <div class="answer-head">
           <span class="badge" id="safety-badge"></span>
+          <button class="icon-speak tiny" id="speak-safety" title="Listen to safety level">🔊</button>
           <span class="lang-pill hidden" id="detected-lang"></span>
           <span class="checked" id="checked"></span>
+          <button class="icon-speak tiny hidden" id="speak-checked" title="Listen to what was checked">🔊</button>
         </div>
         <div class="say-row">
-          <button class="icon-speak" id="speak-transcript" title="Listen">🔊</button>
           <p class="transcript" id="transcript"></p>
+          <button class="icon-speak" id="speak-transcript" title="Listen">🔊</button>
         </div>
         <div class="say-row">
-          <button class="icon-speak" id="speak-answer" title="Listen">🔊</button>
           <p class="answer-text" id="answer-text"></p>
+          <button class="icon-speak" id="speak-answer" title="Listen">🔊</button>
         </div>
-        <p class="misconception hidden" id="misconception"></p>
+        <div class="say-row hidden" id="misconception-row">
+          <p class="misconception" id="misconception"></p>
+          <button class="icon-speak tiny" id="speak-misconception" title="Listen">🔊</button>
+        </div>
         <p class="tts-note hidden" id="tts-note"></p>
       </div>
     </section>
