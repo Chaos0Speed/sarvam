@@ -41,7 +41,7 @@ You receive OCR text from a lab report and/or prescription and build a simple vi
 STRICT RULES:
 - Use ONLY facts present in the text. Never invent labs, medicines, doses or values.
 - Do not diagnose. Do not judge or second-guess the doctor's choices.
-- Write all patient-facing text in {language}. If you cannot write well in that language, use simple English.
+- LANGUAGE IS CRITICAL: write ALL patient-facing text (patient_summary, plain_meaning, schedule labels/instructions/notes, guardrails, story_script) in {language} using its NATIVE script. NEVER use English or romanized text for these fields — only medicine names and lab marker names may stay in English.
 
 Return ONLY valid JSON with exactly this shape:
 {{
@@ -71,7 +71,7 @@ HARD SAFETY RULES:
 - NEVER advise starting, stopping, skipping or changing any medicine or dose. If the doubt implies that, safety_level MUST be "doctor" and you must tell the patient to ask their doctor before changing anything.
 - Never diagnose new conditions. Never suggest new medicines. General food/timing lifestyle information is allowed with care.
 - Use only facts from the context. If the context does not cover the doubt, share only widely-known general information and set safety_level to at least "caution".
-- answer_text: maximum 80 words, simple everyday words, warm tone, written in {language} (fall back to simple English only if you cannot write that language). If safety_level is not "safe", end by advising the patient to confirm with their doctor.
+- answer_text: maximum 80 words, simple everyday words, warm tone, ALWAYS written in {language} using its NATIVE script — never English, never romanized (medicine names may stay in English). If safety_level is not "safe", end by advising the patient to confirm with their doctor.
 
 Return ONLY valid JSON:
 {{"safety_level": "safe|caution|doctor",
@@ -145,11 +145,18 @@ async def analyze_report(
     try:
         story = svc.chat_json(
             EXTRACTION_SYSTEM.format(language=language_name(language_code)),
-            context_text,
+            f"REMINDER: every patient-facing field must be written in "
+            f"{language_name(language_code)}, native script.\n\n{context_text}",
             temperature=0.2,
         )
     except Exception as exc:  # noqa: BLE001 - surface a clean demo error
         raise HTTPException(status_code=502, detail=f"Analysis failed: {exc}") from exc
+
+    # Belt-and-braces: if the model still drifted to English, translate the
+    # spoken overview so the audio is always in the chosen language.
+    story["story_script"] = svc.ensure_language(
+        story.get("story_script", ""), language_code
+    )
 
     report_id = uuid.uuid4().hex[:12]
     REPORTS[report_id] = {
@@ -226,11 +233,18 @@ async def ask_doubt(req: AskDoubtRequest) -> dict:
     try:
         answer = svc.chat_json(
             DOUBT_SYSTEM.format(language=language_name(answer_lang)),
+            f"REMINDER: answer_text must be written in "
+            f"{language_name(answer_lang)}, native script.\n\n"
             f"CONTEXT:\n{report['context_text']}\n\nPATIENT'S DOUBT: {question}",
             temperature=0.4,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Doubt answering failed: {exc}") from exc
+
+    # Guarantee the spoken answer is in the patient's language.
+    answer["answer_text"] = svc.ensure_language(
+        answer.get("answer_text", ""), answer_lang
+    )
 
     try:
         audio = svc.speak(answer.get("answer_text", ""), answer_lang)
@@ -300,7 +314,10 @@ async def speak_text(req: SpeakRequest) -> dict:
     if not text or not tts_available:
         return {"audio_base64": None, "tts_available": tts_available}
     try:
-        audio = svc.speak(text, req.language_code)
+        # Every 🔊 button speaks the CHOSEN language — if the source text is
+        # UI chrome or drifted to English, translate it first.
+        spoken_text = svc.ensure_language(text, req.language_code)
+        audio = svc.speak(spoken_text, req.language_code)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Text-to-speech failed: {exc}") from exc
     return {"audio_base64": audio, "tts_available": True}

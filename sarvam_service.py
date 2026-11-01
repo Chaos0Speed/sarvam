@@ -105,6 +105,45 @@ def chat_json(system_prompt: str, user_prompt: str, temperature: float = 0.2) ->
     )
 
 
+def _ascii_ratio(text: str) -> float:
+    """Fraction of alphabetic characters that are plain ASCII (Latin letters)."""
+    alpha = [ch for ch in text if ch.isalpha()]
+    if not alpha:
+        return 0.0
+    return sum(1 for ch in alpha if ord(ch) < 128) / len(alpha)
+
+
+def ensure_language(text: str, language_code: str) -> str:
+    """Guarantee spoken text is in the target language.
+
+    LLMs sometimes drift to English (the report context is English), which
+    makes Bulbul read English audio even for hi-IN. For every non-English
+    language we expect a native (non-Latin) script — if the text is mostly
+    Latin letters, translate once and use that. Medicine names and dosages
+    stay in English/Latin by design.
+    """
+    if not text or language_code == "en-IN" or language_code not in LANGUAGES:
+        return text
+    if _ascii_ratio(text) < 0.6:
+        return text  # already (mostly) in the native script
+    try:
+        translated = chat_text(
+            "You are a translator for patient instructions. Translate the user's text "
+            "into the target language. Rules: write in the NATIVE script of the target "
+            "language (never romanized); keep medicine names, dosages (mg/mcg/numbers) "
+            "and lab marker names exactly as they are; keep the tone simple and warm. "
+            "Return ONLY the translated text — no notes, no quotes.",
+            f"Target language: {language_name(language_code)}\n\nText:\n{text}",
+            temperature=0.2,
+            max_tokens=2000,
+        ).strip()
+        if translated and _ascii_ratio(translated) < _ascii_ratio(text):
+            return translated
+    except Exception:  # noqa: BLE001 - best effort, keep original on failure
+        pass
+    return text
+
+
 def speak(text: str, language_code: str) -> str | None:
     """Return base64 mp3 for `text`, or None when the language has no TTS voice."""
     info = LANGUAGES.get(language_code, {})
