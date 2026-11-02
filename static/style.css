@@ -1,36 +1,43 @@
-/* Ghar Ka Doctor — warm cream / sage / terracotta design system
-   60% cream #FBF9F5 · 30% sage #E3E8E2 · 10% terracotta #C86D51
-   Headings: Plus Jakarta Sans · Body: Inter (lh 1.6) · Text: #2C302E */
+/* Ghar Ka Doctor — warm cream / sage / haldi design system
+   60% cream #FBF9F5 · 30% sage #E3E8E2 · 10% haldi-terracotta #A84E35
+   Headings: Baloo 2 (Devanagari + Latin, rounded & warm) · Body: Mukta (Devanagari-native)
+   Text: #2C302E · all text tokens verified ≥ 4.5:1 on their surfaces */
 
 :root {
+  color-scheme: light;
   --bg: #FBF9F5;            /* 60% dominant */
   --sage: #E3E8E2;          /* 30% structure */
   --sage-soft: #F0F3EE;
   --sage-line: #D9E0D6;
-  --accent: #C86D51;        /* 10% accent */
+  --accent: #C86D51;        /* decorative accent only */
   --accent-dark: #B25A40;
+  --accent-deep: #A84E35;   /* solid button base — 5.25:1 with paper text */
+  --accent-deeper: #94432C;
   --accent-soft: #F6E7E0;
   --ink: #2C302E;           /* body text */
-  --muted: #6E736E;
+  --muted: #636864;         /* ≥ 5:1 on every tinted surface it appears on */
   --line: #E4E7E1;
   --card: #FFFFFF;
   --paper: #FBF9F5;
   --danger: #B4432F;
-  --amber: #A66A1F;
+  --amber: #8A5315;         /* text amber — 5.44:1 on the warm tint */
+  --amber-graphic: #A66A1F; /* non-text amber (status strips) — ≥ 3:1 */
   --green: #3E7A50;
   --blue: #4A6FA5;
   --radius: 16px;
   --shadow: 0 1px 2px rgba(44, 48, 46, 0.04), 0 8px 24px -14px rgba(44, 48, 46, 0.16);
-  --font-head: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  --font-head: "Baloo 2", "Mukta", system-ui, sans-serif;
+  --focus-ring: 0 0 0 3px rgba(168, 78, 53, 0.28);
 }
 
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
+@media (pointer: fine) { html { overscroll-behavior: none; } }
 
 body {
   margin: 0;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  font-family: "Mukta", "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-weight: 400;
   line-height: 1.6;
   background:
@@ -38,11 +45,14 @@ body {
     var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-h1, h2, h3, .section-title, .badge, .btn, .field-label, .lab-marker, .pill-top strong {
+h1, h2, h3, .section-title, .badge, .btn, .lab-marker, .pill-top strong {
   font-family: var(--font-head);
 }
+
+h1, h2, h3 { text-wrap: balance; }
 
 /* ---------- header ---------- */
 
@@ -64,12 +74,12 @@ h1, h2, h3, .section-title, .badge, .btn, .field-label, .lab-marker, .pill-top s
   width: 52px; height: 52px;
   display: grid; place-items: center;
   font-size: 26px;
-  background: linear-gradient(135deg, #D07A5E 0%, var(--accent-dark) 100%);
+  background: var(--accent-deep);
   border-radius: 16px;
-  box-shadow: 0 6px 16px -8px rgba(200, 109, 81, 0.55);
+  box-shadow: inset 0 1px 0 rgba(251, 249, 245, 0.25), 0 6px 16px -8px rgba(200, 109, 81, 0.55);
 }
 
-.brand h1 { margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.brand h1 { margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
 .tagline { margin: 2px 0 0; color: var(--muted); font-size: 0.86rem; }
 
 .disclaimer-pill {
@@ -127,12 +137,14 @@ main {
   place-items: center;
   padding: 18px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .welcome-card {
   width: min(620px, 100%);
   max-height: calc(100vh - 36px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--bg);
   border: 1px solid var(--sage-line);
   border-radius: 22px;
@@ -143,6 +155,9 @@ main {
   justify-items: center;
   text-align: center;
 }
+
+.welcome-card:focus { outline: none; }
+.welcome-card:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 4px; }
 
 .welcome-logo { width: 60px; height: 60px; font-size: 30px; }
 
@@ -164,6 +179,8 @@ main {
 }
 @media (max-width: 560px) { .case-cards { grid-template-columns: 1fr; } }
 
+.case-wrap { position: relative; }
+
 .case-card {
   display: grid;
   gap: 4px;
@@ -177,6 +194,7 @@ main {
   cursor: pointer;
   font: inherit;
   color: var(--ink);
+  touch-action: manipulation;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .case-card:hover { border-color: #C4CDC1; }
@@ -271,13 +289,14 @@ select, input#question {
   font-size: 0.93rem;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-select:focus, input#question:focus {
+select:focus-visible, input#question:focus-visible {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(200, 109, 81, 0.16);
+  box-shadow: var(--focus-ring);
 }
 
 .file-drop {
+  position: relative;
   display: block;
   padding: 11px 12px;
   border: 1.5px dashed #C9CFC6;
@@ -286,9 +305,25 @@ select:focus, input#question:focus {
   color: var(--muted);
   font-size: 0.9rem;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+/* input stays in the tab order, invisible, covering the whole label */
+.file-drop input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
 }
 .file-drop:hover { border-color: var(--accent); color: var(--accent-dark); }
+.file-drop:focus-within {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+  color: var(--accent-dark);
+}
 .file-drop.has-file { border-style: solid; border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
 
 /* ---------- buttons ---------- */
@@ -301,6 +336,7 @@ select:focus, input#question:focus {
   font-size: 0.92rem;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
   transition: filter 0.15s, transform 0.05s, background 0.15s;
   white-space: nowrap;
 }
@@ -308,13 +344,13 @@ select:focus, input#question:focus {
 .btn:disabled { opacity: 0.55; cursor: wait; }
 
 .btn.primary {
-  background: linear-gradient(135deg, #D07A5E 0%, var(--accent-dark) 100%);
+  background: var(--accent-deep);
   color: var(--paper);
   box-shadow: 0 4px 14px -6px rgba(200, 109, 81, 0.55);
 }
-.btn.primary:hover:not(:disabled) { filter: brightness(1.05); }
+.btn.primary:hover:not(:disabled) { background: var(--accent-deeper); }
 
-.btn.speak { background: var(--sage); color: var(--accent-dark); border-color: var(--sage-line); }
+.btn.speak { background: var(--sage); color: var(--ink); border-color: var(--sage-line); }
 .btn.speak:hover { filter: brightness(0.98); }
 
 .btn.mic { background: var(--sage-soft); color: var(--ink); border-color: var(--sage-line); }
@@ -341,6 +377,7 @@ select:focus, input#question:focus {
   background: var(--sage-soft);
   cursor: pointer;
   color: var(--accent-dark);
+  touch-action: manipulation;
   transition: background 0.15s, border-color 0.15s, transform 0.05s;
 }
 .icon-speak:hover { background: var(--sage); border-color: #C4CDC1; }
@@ -368,6 +405,17 @@ h2[data-say] {
 .doubt-hint .icon-speak { margin-left: 8px; vertical-align: middle; }
 
 .icon-speak.tiny { width: 24px; height: 24px; font-size: 0.65rem; flex: none; }
+
+/* one consistent keyboard-focus ring everywhere (inputs keep their tinted ring) */
+.btn:focus-visible,
+.icon-speak:focus-visible,
+.chip-ask:focus-visible,
+.case-card:focus-visible,
+.file-drop:focus-within,
+.btn.ghost:focus-visible {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
+}
 
 /* 🔊 row pinned to the end of lab/pill cards */
 .card-foot { display: flex; justify-content: flex-end; }
@@ -404,17 +452,17 @@ h2[data-say] {
 }
 .lab-card.status-high::before { background: #C0442B; }
 .lab-card.status-low::before { background: var(--blue); }
-.lab-card.status-borderline::before { background: #C98A2B; }
+.lab-card.status-borderline::before { background: var(--amber-graphic); }
 .lab-card.status-normal::before { background: var(--green); }
 
 .lab-main { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .lab-marker { font-weight: 700; font-size: 0.95rem; color: var(--ink); }
-.lab-value { font-weight: 800; }
+.lab-value { font-weight: 800; font-variant-numeric: tabular-nums; }
 .lab-card.status-high .lab-value { color: var(--danger); }
 .lab-card.status-low .lab-value { color: var(--blue); }
 .lab-card.status-borderline .lab-value { color: var(--amber); }
 .lab-card.status-normal .lab-value { color: var(--green); }
-.lab-range { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+.lab-range { font-size: 0.72rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .lab-med { font-size: 0.88rem; font-weight: 600; color: var(--accent-dark); }
 .lab-meaning { margin: 0; font-size: 0.84rem; color: var(--muted); }
@@ -422,8 +470,7 @@ h2[data-say] {
 .lab-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 
 /* case + summary cards carry a corner 🔊 */
-.case-card { position: relative; }
-.case-card > .icon-speak,
+.case-wrap > .icon-speak,
 .summary-card .icon-speak { position: absolute; top: 10px; right: 10px; }
 .summary-card { position: relative; }
 .summary-card p { margin: 0; font-size: 0.92rem; padding-right: 40px; }
@@ -473,7 +520,19 @@ h2[data-say] {
 .story-card { border-left: 4px solid var(--accent); }
 .story-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .story-top h2 { margin: 0; }
-.story-card p { margin: 0; font-size: 0.95rem; }
+/* the "parchi" moment: the doctor's explanation sits on ruled prescription paper */
+.story-card p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 26px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 25px,
+    var(--sage-line) 25px,
+    var(--sage-line) 26px
+  );
+}
 
 .guard-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .guard-list li {
@@ -511,6 +570,7 @@ h2[data-say] {
   font-weight: 500;
   color: var(--ink);
   cursor: pointer;
+  touch-action: manipulation;
   padding: 4px 2px 4px 8px;
   text-align: left;
 }
@@ -595,4 +655,14 @@ footer {
   .card { padding: 16px; }
   .btn { flex: 1; }
   .ask-row .btn { flex: 0 0 auto; }
+}
+
+/* reduced motion: no pulse loops, no smooth scroll, no transitions */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

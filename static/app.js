@@ -112,6 +112,7 @@ async function init() {
   wireWelcome();
   wireSessionControls();
   decorateDataSay();
+  setBackgroundInert(true); // welcome dialog is open; page behind is inert
   window.addEventListener("error", (e) => showFatal(e.message));
   window.addEventListener("unhandledrejection", (e) => showFatal(String(e.reason)));
 
@@ -195,8 +196,9 @@ async function loadWelcomeCards() {
     const meta = state.presetMeta[card.dataset.case];
     if (!meta) return;
     card.querySelector(".case-desc").textContent = meta.description;
-    // Non-readers must be able to choose: speak title + description
-    card.appendChild(
+    // Non-readers must be able to choose: speak title + description.
+    // Sibling of the card (never inside it) — nested buttons are invalid HTML.
+    card.parentElement.appendChild(
       makeSpeakButton(`${meta.title}. ${meta.description}`, "Listen to this case")
     );
   });
@@ -234,8 +236,21 @@ function wireWelcome() {
 function selectCase(id) {
   state.selectedCase = id;
   document.querySelectorAll(".case-card").forEach((c) => c.classList.remove("selected"));
+  document.querySelectorAll(".case-card[data-case]").forEach((c) => c.setAttribute("aria-pressed", "false"));
   const el = document.querySelector(id === "upload" ? "#upload-card" : `.case-card[data-case="${id}"]`);
   if (el) el.classList.add("selected");
+  if (id !== "upload") el.setAttribute("aria-pressed", "true");
+}
+
+/* While the welcome dialog is open the rest of the page is inert. */
+function setBackgroundInert(on) {
+  for (const el of [document.querySelector(".topbar"), document.querySelector("main"), document.querySelector("footer")]) {
+    if (el) el.inert = on;
+  }
+}
+
+function moveFocus(el) {
+  if (el) el.focus({ preventScroll: true });
 }
 
 async function startSession() {
@@ -277,14 +292,17 @@ async function startSession() {
       "Listen to the active case"
     ));
     $("welcome").classList.add("hidden");
+    setBackgroundInert(false);
     $("session-bar").classList.remove("hidden");
     $("board").classList.remove("hidden");
     $("doubt").classList.remove("hidden");
 
     renderBoard(data);
     loadSampleDoubts(state.selectedCase === "upload" ? null : state.selectedCase);
+    moveFocus($("session-bar")); // focus leaves the closed dialog deliberately
     if (state.storyAudio) play(state.storyAudio); // audio-first session start
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
   } catch (err) {
     flash(status, `⚠️ ${err.message}`, true);
   } finally {
@@ -307,6 +325,8 @@ function wireSessionControls() {
     $("welcome-status").textContent = "";
     $("welcome-lang-slot").appendChild($("language")); // move select back
     $("welcome").classList.remove("hidden");
+    setBackgroundInert(true);
+    moveFocus(document.querySelector(".welcome-card"));
     window.scrollTo({ top: 0 });
   });
 
@@ -568,7 +588,7 @@ function renderAnswer(data) {
 
   state.transcript = data.transcript || "";
   state.answerText = a.answer_text || "";
-  $("transcript").textContent = `You asked: "${data.transcript}"`;
+  $("transcript").textContent = `You asked: “${data.transcript}”`;
   $("answer-text").textContent = a.answer_text || "";
 
   const misRow = $("misconception-row");
@@ -595,10 +615,13 @@ function renderAnswer(data) {
 function setupMic() {
   const mic = $("mic");
   let stream = null;
+  let stopRequested = false; // released before the recorder was ready
 
   const start = async (e) => {
     e.preventDefault();
+    if (state.recorder && state.recorder.state === "recording") return; // held key repeat / double press
     if (!state.reportId) { flash($("doubt-status"), "Start a session first.", true); return; }
+    stopRequested = false;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
@@ -614,13 +637,15 @@ function setupMic() {
       blobToBase64(blob).then((b64) => askAudio(b64));
     };
     state.recorder.start();
+    if (stopRequested) { state.recorder.stop(); return; }
     mic.textContent = "⏺️ Listening… release";
     mic.classList.add("recording");
   };
 
   const stop = (e) => {
     e.preventDefault();
-    if (state.recorder && state.recorder.state === "recording") state.recorder.stop();
+    if (!state.recorder || state.recorder.state !== "recording") { stopRequested = true; return; }
+    state.recorder.stop();
     mic.textContent = "🎙️ Hold";
     mic.classList.remove("recording");
   };
@@ -629,6 +654,13 @@ function setupMic() {
   mic.addEventListener("pointerup", stop);
   mic.addEventListener("pointerleave", (e) => {
     if (state.recorder && state.recorder.state === "recording") stop(e);
+  });
+  // Keyboard parity for hold-to-record: hold Enter/Space, release to send.
+  mic.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") start(e);
+  });
+  mic.addEventListener("keyup", (e) => {
+    if (e.key === "Enter" || e.key === " ") stop(e);
   });
 }
 

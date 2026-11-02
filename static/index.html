@@ -5,33 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ghar Ka Doctor — Parchi-se-Puchho</title>
   <meta name="description" content="Your lab report and prescription, explained in your language — with a voice doubt solver." />
+  <meta name="theme-color" content="#FBF9F5" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=9" />
+  <!-- Baloo 2 + Mukta: both cover Devanagari, so Hindi renders in the app's own voices -->
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=10" />
 </head>
 <body>
   <div id="fatal-error" class="fatal hidden"></div>
   <!-- Session-start: asked at the beginning of EVERY session -->
   <div class="overlay" id="welcome">
-    <div class="welcome-card">
+    <div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title" tabindex="-1">
       <div class="logo welcome-logo" aria-hidden="true">🩺</div>
-      <h1>Ghar Ka Doctor</h1>
-      <p class="tagline">"Parchi-se-Puchho" — your lab report &amp; prescription, explained in your language</p>
+      <h1 id="welcome-title">Ghar Ka Doctor</h1>
+      <p class="tagline">“Parchi-se-Puchho” — your lab report &amp; prescription, explained in your language</p>
 
       <h2 class="welcome-q" data-say="Which case should I consider while answering? Pick a demo case below, or upload your own report.">Which case should I consider while answering?</h2>
       <div class="case-cards">
-        <button type="button" class="case-card selected" data-case="case-a">
-          <span class="case-icon">🩸</span>
-          <span class="case-title">Case A — Diabetes + Thyroid</span>
-          <span class="case-desc">HbA1c &amp; TSH high. Thyronorm, Glycomet GP 1, Shelcal.</span>
-        </button>
-        <button type="button" class="case-card" data-case="case-b">
-          <span class="case-icon">🌡️</span>
-          <span class="case-title">Case B — Post-Fever + Antibiotic</span>
-          <span class="case-desc">Fever resolving. Azithral 500, Pantocid DSR, Dolo 650.</span>
-        </button>
+        <div class="case-wrap">
+          <button type="button" class="case-card selected" data-case="case-a" aria-pressed="true">
+            <span class="case-icon">🩸</span>
+            <span class="case-title">Case A — Diabetes + Thyroid</span>
+            <span class="case-desc">HbA1c &amp; TSH high. Thyronorm, Glycomet GP 1, Shelcal.</span>
+          </button>
+        </div>
+        <div class="case-wrap">
+          <button type="button" class="case-card" data-case="case-b" aria-pressed="false">
+            <span class="case-icon">🌡️</span>
+            <span class="case-title">Case B — Post-Fever + Antibiotic</span>
+            <span class="case-desc">Fever resolving. Azithral 500, Pantocid DSR, Dolo 650.</span>
+          </button>
+        </div>
       </div>
 
       <div class="case-card upload-card" id="upload-card">
@@ -40,21 +46,21 @@
           <span class="case-title">Or upload a real report / prescription</span>
         </div>
         <label class="file-drop" for="file">
-          <input type="file" id="file" accept="image/*,.pdf" hidden />
+          <input type="file" id="file" name="report" accept="image/*,.pdf" />
           <span id="file-name">Click to choose a photo or PDF — I'll read it with Vision OCR</span>
         </label>
       </div>
 
       <div class="welcome-lang">
-        <span class="field-label">Answer in</span>
+        <label class="field-label" for="language">Answer in</label>
         <span id="welcome-lang-slot" class="lang-slot">
           <select id="language"></select>
         </span>
         <span class="lang-hint" data-say="Auto detect applies to your spoken doubts. Pick the language you want the answers in.">🌐 Auto-detect (in the list) applies to your spoken doubts.</span>
       </div>
 
-      <button id="start" class="btn primary big-btn">Start session →</button>
-      <p id="welcome-status" class="status"></p>
+      <button id="start" class="btn primary big-btn">Start session</button>
+      <p id="welcome-status" class="status" role="status"></p>
     </div>
   </div>
 
@@ -64,7 +70,7 @@
         <div class="logo" aria-hidden="true">🩺</div>
         <div>
           <h1>Ghar Ka Doctor</h1>
-          <p class="tagline">"Parchi-se-Puchho" — your lab report &amp; prescription, explained in your language</p>
+          <p class="tagline">“Parchi-se-Puchho” — your lab report &amp; prescription, explained in your language</p>
         </div>
       </div>
       <span class="disclaimer-pill" data-say="Patient education demo only. This is not medical advice. Always follow your doctor's advice.">⚠️ Patient education demo — not medical advice</span>
@@ -73,11 +79,11 @@
 
   <main>
     <!-- Current session bar -->
-    <section class="card session-bar hidden" id="session-bar">
+    <section class="card session-bar hidden" id="session-bar" tabindex="-1">
       <span class="session-case" id="session-case"></span>
       <div class="session-controls">
         <span class="lang-slot" id="session-lang-slot"></span>
-        <button id="change-case" class="btn ghost">↺ Change case</button>
+        <button type="button" id="change-case" class="btn ghost">↺ Change case</button>
       </div>
     </section>
 
@@ -109,7 +115,7 @@
       <div class="card story-card">
         <div class="story-top">
           <h2>🩺 Today's routine, explained</h2>
-          <button id="play-story" class="btn speak hidden">▶ Listen to summary</button>
+          <button type="button" id="play-story" class="btn speak hidden">▶ Listen to summary</button>
         </div>
         <p id="story-text"></p>
       </div>
@@ -124,14 +130,14 @@
     <section class="card doubt-card hidden" id="doubt">
       <h2 data-say="Puchho Doctor Se. Ask the doctor.">🎙️ Puchho Doctor Se</h2>
       <p class="muted doubt-hint" data-say="Hold the mic and speak in any language. We detect it automatically. Or tap a sample doubt, hear it first with the speaker button, or type below. Every answer plays out loud, and dose changes are always routed to a real doctor.">Hold the mic and speak in <strong>any</strong> language — we detect it automatically. Or tap a sample doubt (🔊 to hear it first), or type below. Every answer plays out loud, and dose changes are always routed to a real doctor.</p>
-      <div id="chips" class="chips"></div>
+      <div id="chips" class="chips" role="group" aria-label="Sample doubts"></div>
       <div class="ask-row">
-        <input id="question" placeholder="Type your doubt…" autocomplete="off" />
-        <button id="mic" class="btn mic" title="Hold to record ~5 seconds">🎙️ Hold</button>
-        <button id="ask" class="btn primary">Ask</button>
+        <input id="question" name="question" placeholder="Type your doubt…" autocomplete="off" aria-label="Type your doubt" enterkeyhint="send" />
+        <button type="button" id="mic" class="btn mic" title="Hold to record ~5 seconds">🎙️ Hold</button>
+        <button type="button" id="ask" class="btn primary">Ask</button>
       </div>
-      <p id="doubt-status" class="status"></p>
-      <div id="answer" class="hidden">
+      <p id="doubt-status" class="status" role="status"></p>
+      <div id="answer" class="hidden" aria-live="polite">
         <div class="answer-head">
           <span class="badge" id="safety-badge"></span>
           <button class="icon-speak tiny" id="speak-safety" title="Listen to safety level">🔊</button>
@@ -160,6 +166,6 @@
     <p>Ghar Ka Doctor · Sarvam Vision · sarvam-105b-conversations · Saaras STT · Bulbul TTS · Not medical advice</p>
   </footer>
 
-  <script src="/static/app.js?v=9"></script>
+  <script src="/static/app.js?v=10"></script>
 </body>
 </html>
